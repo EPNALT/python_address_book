@@ -1,19 +1,34 @@
 #address_book.py
-#features: add (done), modify (done), delete (done), search, search by tag (done), tag contacts (done)
-#contact format: contact can be large dict, with key (name) linking to new contact object containing fields for data and methods for modifiying data (done)
+
+#features: add (done), modify (done), delete (done), search,
+#search by tag (done), tag contacts (done)
+
+#contact format: contact can be large dict, with key (name) linking to
+#new contact object containing fields for data and methods for
+#modifiying data (done)
+
 #must store contact list using pickle (done)
+
 import pickle
-import os
+from os import system
 
 contacts_list = None
 contacts_file = None
 new_file = False
 user_input = None
 
-def clear_screen(): os.system("cls")
+def clear_screen(): system("cls")
 
-def retry_sequence(func): 
+def retry_sequence(func):
+    """A decorator used to repeat a function consisting of a sequence of events.
+    
+    The function should usually be a string of inputs with some
+    processing in it, so if the user enters invalid/bad data,
+    they are prompted to repeat the inputs but put valid data in
+    this time.
+    """
     def wrapper_function(self=None): 
+        #ugly default None parameter present because decorator is also used for some class methods
         while True:
             try:
                 result = func(self)
@@ -27,6 +42,11 @@ def retry_sequence(func):
     return wrapper_function 
 
 def request_contact_info(quickfix=None):
+    """Uses inputs to take information about the contact from users, then makes a returns a  Contact object with them.
+    
+    The function is decorated with the retry_sequence function to make sure 
+    that any errors in data entry are corrected by the user.
+    """
     first_name=input("Please enter your contact's first name. Use alphabets of any case only, with no spaces.")
     last_name=input("Please enter your contact's last name. Use alphabets of any case only, with no spaces.")
     number=input("Please enter your contact's phone number. Use digits only.")
@@ -36,6 +56,11 @@ def request_contact_info(quickfix=None):
 request_contact_info = retry_sequence(request_contact_info)
 
 def create_new_contact():
+    """Creates a new contact using the request_contact_info function.
+    
+    Basically, takes the output from that and then checks for duplicates
+    in the contacts_list. If there aren't any, then it adds it.
+    """
     new_contact = request_contact_info()
     if new_contact.full_name in contacts_list:
         print("\nSorry, you already have a contact with that name.\nTo change that contact's data, please 'view' it from the main screen, then select the option to modify it.\nThe original contact has not been modified.")
@@ -45,6 +70,12 @@ def create_new_contact():
     save_contacts_list_to_contacts_file()
     
 def save_contacts_list_to_contacts_file():
+    """Dumps the contacts_list dictionary to the contacts.data file using pickle.
+    
+    The function isn't called before the file is checked to exist, so
+    no probllem with that. Check the code near #opening contacts file
+    for a better explanation.
+    """
     print("\nOpening contacts file to update contacts list...")
     contacts_file = open("contacts.data","wb")
     pickle.dump(contacts_list,contacts_file)
@@ -52,8 +83,18 @@ def save_contacts_list_to_contacts_file():
     contacts_file.close()
     
 def request_tags(quickfix=None):
+    #ugly unused parameter included because otherwise I have to mess around with 'retry_sequence' to get it to work right
+    """Used to request a list of tags using a certain selection method.
+    
+    Basically, the user can create a list of strings by adding strings
+    (by just typing them in at the prompt and pressing Enter) or
+    removing them (by just typing them in again.) The user can submit
+    the list of strings by typing nothing and pressing Enter. The function
+    will then pass a tuple containing the strings.
+    """
     try:
-        #to check if this has already been assigned a value before because otherwise i have to mess around with 'retry_sequence' to get it to work right
+        #to check if this has already been assigned a value before so that it can take it (can't add it as a parameter, because it'll probably screw something up with 'retry_sequence'
+        #if not defined yet, defines it as an empty list
         modified_tags
     except NameError:
         modified_tags = list()
@@ -79,7 +120,10 @@ class DataFormatError(Exception):
         self.wanted_type = wanted_type
 
 class Contact():
-    """Stores a contact and its information."""
+    """Stores a contact and its information.
+    
+    Has methods for deleting and modifying itself.
+    """
     def __init__(self,first_name,last_name,number,email_address="",*tags):
         if type(first_name) != str or not first_name.isalpha():
             raise DataFormatError("First name","alphabets only, no spaces")
@@ -95,11 +139,18 @@ class Contact():
         self.tags = tags
     
     def delete_self(self):
+        """Removes itself from contacts list, then deletes itself, then saves contacts."""
         del contacts_list[self.full_name]
         del self
         save_contacts_list_to_contacts_file()
     
     def modify_self_except_tags(self):
+        """Used to change data about the contact except for the tags (different fucntion)
+        
+        Is also decorated with retry_sequence. 
+        Cannot use request_contact_info because prompts are different here
+        (otherwise I could just take the info straight from the created contact info)
+        """
         first_name=input("Please enter your contact's first name. Use alphabets of any case only, with no spaces. If you do not wish to change this, simply press Enter.")
         last_name=input("Please enter your contact's last name. Use alphabets of any case only, with no spaces. If you do not wish to change this, simply press Enter.")
         number=input("Please enter your contact's phone number. Use digits only. If you do not wish to change this, simply press Enter.")
@@ -131,11 +182,14 @@ class Contact():
     modify_self_except_tags = retry_sequence(modify_self_except_tags)
     
     def modify_tags(self,*tags_to_change):
+        """Changes the tags of the contact by using the request_tags function."""
         modified_tags = list(self.tags)
         self.tags = tuple(request_tags())
         save_contacts_list_to_contacts_file()
     
     def display_self(self):
+        #might change this to __str__
+        """Prints data about the contact in an orderly way."""
         print(self.full_name)
         print("-"*len(self.full_name))
         print("Number:", self.number)
@@ -146,20 +200,20 @@ class Contact():
 #opening contacts file
 try:
     contacts_file = open("contacts.data","rb")
-except FileNotFoundError:
+except FileNotFoundError: #if no file detected, create a new file
     print("\nNo contacts file detected, creating new contacts file...")
     contacts_list = dict()
     contacts_file = open("contacts.data","wb")
     pickle.dump(contacts_list,contacts_file)
     print("\nEmpty contacts file created. Closing file...")
-    new_file = True
+    new_file = True #brand-new blank file, so make sure that it doesn't stay empty
     contacts_file.close()
-else:
-    contacts_list = pickle.load(contacts_file)
+else: #if file present, load info from it
+    contacts_list = pickle.load(contacts_file) 
     print("\nContacts read from contacts file. Closing file...")
     contacts_file.close()
     
-if new_file:
+if new_file: #in case file is brand-new (and so blank)
     print("\nPlease enter a new contact to start the contacts list.")
     create_new_contact()
 
